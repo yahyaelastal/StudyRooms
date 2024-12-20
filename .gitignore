@@ -1,0 +1,39 @@
+# Python compiled files
+*.pyc
+*.pyo
+__pycache__/
+
+# Environment variables and secrets
+.env
+*.env
+
+# Django-related files
+db.sqlite3
+*.log
+*.pot
+*.pyc
+*.pyo
+__pycache__/
+media/
+staticfiles/
+
+# Virtual environment
+venv/
+.env/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Byte-compiled Python files
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
