@@ -1,11 +1,58 @@
 from django.shortcuts import render , redirect
-from django.http import HttpResponse , JsonResponse
+from django.http import HttpResponse
 from .models import Room , Topic
-from django.shortcuts import get_object_or_404
 from .forms import RoomForm
+from django.contrib.auth.decorators import login_required
 from django.db.models import Q
+from django.contrib.auth.models import User
+from django.contrib import messages
+from django.contrib.auth import authenticate , login , logout
+from django.contrib.auth.forms import UserCreationForm
 # Create your views here.
 
+def loginPage(request):
+
+   if request.user.is_authenticated:
+      return redirect('home')
+
+   if request.method == 'POST':
+      username= request.POST.get('username').lower()
+      password= request.POST.get('password')
+
+      try:
+         user = User.objects.get(username = username)
+      except:
+         messages.error(request, 'User doesnt exist')
+
+      user = authenticate(request , username=username , password= password)
+      if user is not None:
+         login(request , user)
+         return redirect('home')
+      else:
+         messages.error(request, 'username OR password doesnt exist')
+
+
+   context = {'page' : 'login'}
+   return render(request, 'base/login_register.html', context)
+
+def logoutUser(request):
+   logout(request)
+   return redirect('home')
+
+def registerUser(request):
+   form = UserCreationForm()
+   if request.method == 'POST':
+      form = UserCreationForm(request.POST)
+      if form.is_valid():
+         user = form.save(commit=False)
+         user.username = user.username.lower()
+         user.save()
+         login(request, user)
+         return redirect('home')
+      else:
+         messages.error(request , 'An error occured during registration')
+   context = {'form': form}
+   return render(request , 'base/login_register.html', context)
 
 
 def home(request):
@@ -20,34 +67,17 @@ def home(request):
    room_count = rooms.count()
    context = {'rooms': rooms ,'topics':topics , 'room_count': room_count}
    return render(request , 'base/home.html' ,context)
-   # rooms = Room.objects.values()
-   # if not rooms:
-   #    message = {'message': 'no rooms found'}
-   #    return JsonResponse(message , status=404)
-   
-   # context={'rooms': list(rooms)}
-   # return JsonResponse(context)
+     
 
 def room(get, pk):
-   # room = get_object_or_404(Room , id=pk)
    try:
       room = Room.objects.get(id = pk)
       context = {'room': room}
       return render(get , 'base/room.html', context)
    except Room.DoesNotExist:
       return HttpResponse("Room not found", status=404)
-   # try:
-   #    room = Room.objects.get(id = pk)
-   #    room_data = {
-   #       'id': room.id,
-   #       'name': room.name,
-   #       'description':room.description,
-   #    }
-   #    context ={'room': room_data}
-   #    return JsonResponse(context , status=200)
-   # except Room.DoesNotExist:
-   #    error = {'error': 'Room not found'}
-   #    return JsonResponse(error , status = 404)
+
+@login_required(login_url = '/login' )
 def createRoom(request):
    form = RoomForm()
    if request.method == 'POST':
@@ -59,9 +89,13 @@ def createRoom(request):
    context ={'form': form}
    return render(request ,'base/room_form.html' , context )
 
+@login_required(login_url = '/login' )
 def updateRoom(request , pk):
    room = Room.objects.get(id = pk)
    form = RoomForm(instance=room)
+
+   if request.user != room.host :
+      return HttpResponse('You are not allowed here')
    if request.method == 'POST':
       print(request.POST)
       form =RoomForm(request.POST , instance=room)
@@ -71,8 +105,12 @@ def updateRoom(request , pk):
    context={'form':form}
    return render(request ,'base/room_form.html',context)
 
+@login_required(login_url = '/login' )
 def deleteRoom(request , pk):
    room = Room.objects.get(id = pk)
+
+   if request.user != room.host :
+      return HttpResponse('You are not allowed here')
    if request.method == 'POST':
       room.delete()
       return redirect('home')
