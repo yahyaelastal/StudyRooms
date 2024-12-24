@@ -1,7 +1,7 @@
 from django.shortcuts import render , redirect
 from django.http import HttpResponse
-from .models import Room , Topic
-from .forms import RoomForm
+from .models import Room , Topic , Message
+from .forms import RoomForm 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.contrib.auth.models import User
@@ -69,11 +69,20 @@ def home(request):
    return render(request , 'base/home.html' ,context)
      
 
-def room(get, pk):
+def room(request, pk):
    try:
       room = Room.objects.get(id = pk)
-      context = {'room': room}
-      return render(get , 'base/room.html', context)
+      room_messages = room.message_set.all().order_by('-created')
+      context = {'room': room , 'room_messages': room_messages}
+      if request.method == 'POST':
+         message = Message.objects.create(
+            user = request.user,
+            room = room,
+            body = request.POST.get('body')
+         )
+         return redirect('room', pk=room.id)
+
+      return render(request , 'base/room.html', context)
    except Room.DoesNotExist:
       return HttpResponse("Room not found", status=404)
 
@@ -84,7 +93,9 @@ def createRoom(request):
       print(request.POST)
       form =RoomForm(request.POST)
       if form.is_valid():
-         form.save()
+         room = form.save(commit=False)
+         room.host = request.user
+         room.save()
          return redirect('home')
    context ={'form': form}
    return render(request ,'base/room_form.html' , context )
